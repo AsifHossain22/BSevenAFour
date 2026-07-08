@@ -1,0 +1,8 @@
+model ServiceCategory{
+  id String @id @default(uuid())
+  name String @unique
+  description String?
+  services Service[]
+
+  @@map("categories")
+}

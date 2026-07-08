@@ -1,0 +1,10 @@
+model Service{
+  id String @id @default(uuid())
+  title String
+  price Decimal
+  categoryId String
+  category ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@map("services")
+}
