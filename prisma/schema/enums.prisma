@@ -1,23 +1,16 @@
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  BLOCKED
-}
-
-enum UserRole{
- CUSTOMER
- TECHNICIAN
- ADMIN
+enum UserRole {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
 }
 
 enum BookingStatus {
   REQUESTED
   ACCEPTED
-  REJECTED
+  DECLINED
   PAID
   IN_PROGRESS
   COMPLETED
-  CANCELLED
 } 
 
 enum PaymentStatus {
