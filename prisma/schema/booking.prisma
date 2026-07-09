@@ -1,0 +1,17 @@
+model Booking {
+  id String @id @default(uuid())
+  customerId String
+  customer User @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  serviceId String
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  timeSlot String
+  status BookingStatus @default(REQUESTED)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments Payment[]
+  
+  reviews Review[]
+
+  @@map("bookings")
+}
