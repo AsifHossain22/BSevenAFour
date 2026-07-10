@@ -5,8 +5,10 @@ import { UserRole } from '../../../generated/prisma/enums';
 
 const router = Router();
 
-// AuthAPI
+// RegisterAPI
 router.post('/register', authController.registerUser);
+
+// LogInAPI
 router.post('/login', authController.loginUser);
 
 // ProtectedAPI

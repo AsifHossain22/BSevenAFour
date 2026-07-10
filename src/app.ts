@@ -3,6 +3,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import config from './config';
 import { authRoutes } from './modules/auth/auth.routes';
+import { categoryRoutes } from './modules/category/category.routes';
 
 const app: Application = express();
 
@@ -24,5 +25,8 @@ app.get('/', (req: Request, res: Response) => {
 
 // AuthAPI
 app.use('/api/auth', authRoutes);
+
+// ServiceAndTechnicianAPI
+app.use('/api/categories', categoryRoutes);
 
 export default app;
