@@ -2,7 +2,7 @@ import cookieParser from 'cookie-parser';
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import config from './config';
-import { userRoutes } from './modules/user/user.route';
+import { authRoutes } from './modules/auth/auth.routes';
 
 const app: Application = express();
 
@@ -22,7 +22,7 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to FixItNow Server!');
 });
 
-// UserAPI
-app.use('/api/users', userRoutes);
+// AuthAPI
+app.use('/api/auth', authRoutes);
 
 export default app;

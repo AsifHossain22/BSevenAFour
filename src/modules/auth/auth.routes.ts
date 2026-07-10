@@ -1,0 +1,19 @@
+import { Router } from 'express';
+import { authController } from './auth.controller';
+import { auth } from '../../middlewares/auth';
+import { UserRole } from '../../../generated/prisma/enums';
+
+const router = Router();
+
+// AuthAPI
+router.post('/register', authController.registerUser);
+router.post('/login', authController.loginUser);
+
+// ProtectedAPI
+router.get(
+  '/me',
+  auth(UserRole.ADMIN, UserRole.CUSTOMER, UserRole.TECHNICIAN),
+  authController.getMe,
+);
+
+export const authRoutes = router;
