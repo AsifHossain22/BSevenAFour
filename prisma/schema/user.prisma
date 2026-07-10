@@ -4,14 +4,13 @@ model User {
   email String @unique
   password String
   role UserRole
-  isBanned Boolean @default(false)
-  reviews Review[]
+  status String @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   technicianProfile TechnicianProfile?
-
-  bookings Booking[] @relation("CustomerBookings")
+  bookings Booking[]
+  reviews Review[]
 
   @@map("users")
 }
