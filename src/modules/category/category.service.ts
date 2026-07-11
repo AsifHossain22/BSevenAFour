@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma';
 const createCategoryInDB = async (name: string) => {
   return await prisma.serviceCategory.create({
     data: {
-      name,
+      categoryName: name,
     },
   });
 };
