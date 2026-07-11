@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import config from '../../config';
 import { prisma } from '../../lib/prisma';
-import { RegisterUserPayload } from '../user/user.interface';
-import { LoginUserPayload } from './auth.interface';
+import { LoginUserPayload, RegisterUserPayload } from './auth.interface';
 import { jwtUtils } from '../../utils/jwt';
+import { UserRole } from '../../../generated/prisma/enums';
 
 const registerUser = async (payload: RegisterUserPayload) => {
   const { name, email, password, role } = payload;
@@ -27,6 +27,17 @@ const registerUser = async (payload: RegisterUserPayload) => {
       email,
       password: hashedPassword,
       role,
+
+      technicianProfile:
+        role === UserRole.TECHNICIAN
+          ? {
+              create: {
+                bio: 'New technician profile.',
+                yearsOfExperience: 0,
+                pricePerHour: 0,
+              },
+            }
+          : undefined,
     },
   });
 

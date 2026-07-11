@@ -1,5 +1,15 @@
 import { prisma } from '../../lib/prisma';
 
+// CreateCategory
+const createCategoryInDB = async (name: string) => {
+  return await prisma.serviceCategory.create({
+    data: {
+      name,
+    },
+  });
+};
+
+// GetAllCategories
 const getAllCategoriesFromDB = async () => {
   return await prisma.serviceCategory.findMany({
     include: {
@@ -11,5 +21,6 @@ const getAllCategoriesFromDB = async () => {
 };
 
 export const categoryService = {
+  createCategoryInDB,
   getAllCategoriesFromDB,
 };
