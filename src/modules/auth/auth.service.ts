@@ -52,14 +52,12 @@ const registerUser = async (payload: RegisterUserPayload) => {
 const loginUser = async (payload: LoginUserPayload) => {
   const { email, password } = payload;
 
-  // UserExistOrNot
-  const user = await prisma.user.findUnique({
-    where: { email },
+  // FindUser
+  const user = await prisma.user.findUniqueOrThrow({
+    where: {
+      email,
+    },
   });
-
-  if (!user) {
-    throw new Error('Invalid email or password.');
-  }
 
   // AccountValidation
   if (user.status === 'BANNED' || user.status === 'BLOCKED') {
@@ -79,8 +77,16 @@ const loginUser = async (payload: LoginUserPayload) => {
     config.jwt_access_expires_in || '1d',
   );
 
+  // AccessToken
+  const refreshToken = jwtUtils.createToken(
+    { id: user.id, email: user.email, role: user.role },
+    config.jwt_refresh_secret as string,
+    config.jwt_access_expires_in || '7d',
+  );
+
   return {
     accessToken,
+    refreshToken,
     user: {
       id: user.id,
       name: user.name,

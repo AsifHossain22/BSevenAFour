@@ -23,8 +23,16 @@ const loginUser = catchAsync(
     const payload = req.body;
     const result = await authService.loginUser(payload);
 
-    // Secure cookie transmission following your exact pattern
+    const { user, accessToken, refreshToken } = result;
+
+    // AccessToken
     res.cookie('accessToken', result.accessToken, {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+    });
+
+    // RefreshToken
+    res.cookie('refreshToken', result.refreshToken, {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
     });
@@ -33,7 +41,11 @@ const loginUser = catchAsync(
       success: true,
       statusCode: httpStatus.OK,
       message: 'User logged in successfully!',
-      data: result,
+      data: {
+        user,
+        accessToken,
+        refreshToken,
+      },
     });
   },
 );

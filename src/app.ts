@@ -5,6 +5,7 @@ import config from './config';
 import { authRoutes } from './modules/auth/auth.routes';
 import { categoryRoutes } from './modules/category/category.routes';
 import { serviceRoutes } from './modules/service/service.routes';
+import { bookingRoutes } from './modules/booking/booking.routes';
 
 const app: Application = express();
 
@@ -30,4 +31,8 @@ app.use('/api/auth', authRoutes);
 // ServiceAndTechnicianAPI
 app.use('/api/categories', categoryRoutes);
 app.use('/api', serviceRoutes);
+
+// BookingAPI
+app.use('/api/bookings', bookingRoutes);
+
 export default app;

@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import httpStatus from 'http-status';
 import { Prisma } from '../../generated/prisma/client';
-import config from '../config';
 
 export const globalErrorHandler = (
   err: any,
