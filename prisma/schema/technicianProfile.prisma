@@ -5,6 +5,7 @@ model TechnicianProfile {
   skills String[]
   yearsOfExperience Int        
   pricePerHour  Decimal
+  availabilitySlots String[]
   bio String? 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

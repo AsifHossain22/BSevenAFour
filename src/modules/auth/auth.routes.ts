@@ -11,7 +11,7 @@ router.post('/register', authController.registerUser);
 // LogInAPI
 router.post('/login', authController.loginUser);
 
-// ProtectedAPI
+// CurrentProfileAPI
 router.get(
   '/me',
   auth(UserRole.ADMIN, UserRole.CUSTOMER, UserRole.TECHNICIAN),

@@ -54,7 +54,7 @@ const getAllServicesFromDB = async (filters: any) => {
     where: whereConditions,
     include: {
       category: true,
-      technicianProfile: {
+      technician: {
         include: {
           user: {
             select: {

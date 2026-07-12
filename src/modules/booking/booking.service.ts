@@ -1,8 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { UserRole } from '../../../generated/prisma/enums';
-
+import AppError from '../../utils/appError';
 import httpStatus from 'http-status';
-import AppError from '../../utils/AppError';
 
 const createBooking = async (payload: any, customerId: string) => {
   const { serviceId, timeSlot } = payload;
@@ -12,10 +11,7 @@ const createBooking = async (payload: any, customerId: string) => {
   });
 
   if (!targetService) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      'The requested service could not be found.',
-    );
+    throw new AppError(httpStatus.NOT_FOUND, 'Service not found!');
   }
 
   return await prisma.booking.create({
@@ -58,14 +54,12 @@ const getUserBookings = async (userId: string, role: string) => {
         customer: {
           select: {
             name: true,
-            location: true,
           },
         },
       },
     });
   }
 
-  // CustomerQuery
   return await prisma.booking.findMany({
     where: {
       customerId: userId,
@@ -102,7 +96,6 @@ const getBookingById = async (
           id: true,
           name: true,
           email: true,
-          location: true,
         },
       },
       service: {

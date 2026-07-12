@@ -3,7 +3,7 @@ import httpStatus from 'http-status';
 import { sendResponse } from '../../utils/sendResponse';
 import { catchAsync } from '../../utils/catchAsync';
 import { bookingService } from './booking.service';
-import AppError from '../../utils/AppError';
+import AppError from '../../utils/appError';
 
 const createBooking = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
