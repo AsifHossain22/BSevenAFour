@@ -117,14 +117,17 @@ const getTechnicianByIdFromDB = async (id: string) => {
           email: true,
         },
       },
-      services: true,
-      bookings: {
+      services: {
         include: {
-          reviews: {
+          bookings: {
             include: {
-              customer: {
-                select: {
-                  name: true,
+              reviews: {
+                include: {
+                  customer: {
+                    select: {
+                      name: true,
+                    },
+                  },
                 },
               },
             },

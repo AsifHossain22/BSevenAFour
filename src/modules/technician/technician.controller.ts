@@ -97,7 +97,6 @@ const updateBookingStatus = catchAsync(async (req: Request, res: Response) => {
     );
   }
 
-  // Cast 'status' to BookingStatus to match the database signature configuration
   const result = await technicianService.updateBookingStatusInDB(
     bookingId as string,
     userId,
