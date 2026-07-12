@@ -7,5 +7,5 @@ model ServiceCategory {
 
   services Service[]
 
-  @@map("serviceCategories")
+  @@map("service_ategories")
 }

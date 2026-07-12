@@ -1,46 +1,54 @@
 import { prisma } from '../../lib/prisma';
-import { UserRole } from '../../../generated/prisma/enums';
+import httpStatus from 'http-status';
+import AppError from '../../utils/appError';
 
 // GetAllServices
-const getAllServices = async (filters: any) => {
-  const { type, location, rating, minPrice, maxPrice } = filters;
+const getAllServicesFromDB = async (filters: any) => {
+  const { search, categoryId, location, rating } = filters;
+  const andConditions: any[] = [];
 
-  // const whereConditions: any = {
-  //   role: UserRole.TECHNICIAN,
-  //   status: 'ACTIVE',
-  // };
-
-  const whereConditions: any = {};
-
-  if (type) {
-    whereConditions.categoryId = type;
+  if (search) {
+    andConditions.push({
+      OR: [
+        {
+          title: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          description: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+      ],
+    });
   }
 
-  // Filtering
-  if (location || rating) {
-    whereConditions.technicianProfile = {
-      user: location
-        ? {
-            location: {
-              contains: location,
-              mode: 'insensitive',
-            },
-          }
-        : undefined,
-      rating: rating
-        ? {
-            gte: parseInt(rating),
-          }
-        : undefined,
-    };
-  }
+  if (categoryId) andConditions.push({ categoryId });
 
-  if (minPrice || maxPrice) {
-    whereConditions.price = {
-      gte: minPrice ? parseInt(minPrice) : undefined,
-      lte: maxPrice ? parseInt(maxPrice) : undefined,
-    };
-  }
+  if (location)
+    andConditions.push({
+      location: {
+        contains: location,
+        mode: 'insensitive',
+      },
+    });
+
+  if (rating)
+    andConditions.push({
+      rating: {
+        gte: parseInt(rating),
+      },
+    });
+
+  const whereConditions =
+    andConditions.length > 0
+      ? {
+          AND: andConditions,
+        }
+      : {};
 
   return await prisma.service.findMany({
     where: whereConditions,
@@ -49,8 +57,9 @@ const getAllServices = async (filters: any) => {
       technicianProfile: {
         include: {
           user: {
-            omit: {
-              password: true,
+            select: {
+              name: true,
+              email: true,
             },
           },
         },
@@ -60,58 +69,83 @@ const getAllServices = async (filters: any) => {
 };
 
 // GetAllTechnicians
-const getAllTechnicians = async (filters: any) => {
-  const { location, rating } = filters;
-  const whereConditions: any = {
-    role: UserRole.TECHNICIAN,
-    status: 'ACTIVE',
-  };
+const getAllTechniciansFromDB = async (payload: any) => {
+  const { skill } = payload;
+  const andConditions: any[] = [];
 
-  if (location) {
-    whereConditions.location = { contains: location, mode: 'insensitive' };
+  if (skill) {
+    andConditions.push({
+      skills: {
+        has: skill,
+      },
+    });
   }
 
-  if (rating) {
-    whereConditions.technicianProfile = {
-      averageRating: { gte: parseInt(rating) },
-    };
-  }
+  const whereConditions =
+    andConditions.length > 0
+      ? {
+          AND: andConditions,
+        }
+      : {};
 
-  // Filtering
-  return await prisma.user.findMany({
+  return await prisma.technicianProfile.findMany({
     where: whereConditions,
-    omit: { password: true },
     include: {
-      technicianProfile: true,
-    },
-  });
-};
-
-// GetTechnicianById
-const getTechnicianById = async (id: string) => {
-  return await prisma.user.findUniqueOrThrow({
-    where: {
-      id,
-      role: UserRole.TECHNICIAN,
-    },
-    omit: { password: true },
-    include: {
-      technicianProfile: {
-        include: {
-          services: true,
-          reviews: {
-            include: {
-              customer: { select: { name: true, email: true } },
-            },
-          },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          status: true,
         },
       },
     },
   });
 };
 
+// GetTechnicianById
+const getTechnicianByIdFromDB = async (id: string) => {
+  const result = await prisma.technicianProfile.findUnique({
+    where: {
+      id,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      services: true,
+      bookings: {
+        include: {
+          reviews: {
+            include: {
+              customer: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!result) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      'Requested technician profile does not exist.',
+    );
+  }
+
+  return result;
+};
+
 export const serviceService = {
-  getAllServices,
-  getAllTechnicians,
-  getTechnicianById,
+  getAllServicesFromDB,
+  getAllTechniciansFromDB,
+  getTechnicianByIdFromDB,
 };

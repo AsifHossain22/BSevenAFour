@@ -33,6 +33,6 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api', serviceRoutes);
 
 // BookingAPI
-app.use('/api/bookings', bookingRoutes);
+// app.use('/api/bookings', bookingRoutes);
 
 export default app;

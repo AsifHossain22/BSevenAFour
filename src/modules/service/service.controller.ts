@@ -8,7 +8,7 @@ import { serviceService } from './service.service';
 const getAllServices = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const filters = req.query;
-    const services = await serviceService.getAllServices(filters);
+    const services = await serviceService.getAllServicesFromDB(filters);
 
     sendResponse(res, {
       success: true,
@@ -23,7 +23,7 @@ const getAllServices = catchAsync(
 const getAllTechnicians = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const filters = req.query;
-    const technicians = await serviceService.getAllTechnicians(filters);
+    const technicians = await serviceService.getAllTechniciansFromDB(filters);
 
     sendResponse(res, {
       success: true,
@@ -38,7 +38,9 @@ const getAllTechnicians = catchAsync(
 const getTechnicianById = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const technician = await serviceService.getTechnicianById(id as string);
+    const technician = await serviceService.getTechnicianByIdFromDB(
+      id as string,
+    );
 
     sendResponse(res, {
       success: true,
