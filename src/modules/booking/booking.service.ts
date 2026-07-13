@@ -14,7 +14,6 @@ const createBookingInDB = async (payload: any, customerId: string) => {
     data: {
       customerId,
       serviceId,
-      techProfileId: service.techProfileId,
       timeSlot: new Date(timeSlot),
       status: BookingStatus.REQUESTED,
     },
