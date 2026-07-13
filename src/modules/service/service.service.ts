@@ -2,6 +2,35 @@ import { prisma } from '../../lib/prisma';
 import httpStatus from 'http-status';
 import AppError from '../../utils/appError';
 
+// CreateService
+const createServiceInDB = async (payload: any, userId: string) => {
+  const { title, description, price, categoryId, location } = payload;
+
+  const techProfile = await prisma.technicianProfile.findUnique({
+    where: {
+      userId,
+    },
+  });
+
+  if (!techProfile) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      'Technician profile not found. Complete your profile registration first.',
+    );
+  }
+
+  return await prisma.service.create({
+    data: {
+      title,
+      description,
+      price: parseInt(price),
+      location,
+      categoryId,
+      techProfileId: techProfile.id,
+    },
+  });
+};
+
 // GetAllServices
 const getAllServicesFromDB = async (filters: any) => {
   const { search, categoryId, location, rating } = filters;
@@ -148,6 +177,7 @@ const getTechnicianByIdFromDB = async (id: string) => {
 };
 
 export const serviceService = {
+  createServiceInDB,
   getAllServicesFromDB,
   getAllTechniciansFromDB,
   getTechnicianByIdFromDB,

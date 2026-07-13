@@ -1,141 +1,69 @@
+import { BookingStatus } from '../../../generated/prisma/enums';
 import { prisma } from '../../lib/prisma';
-import { UserRole } from '../../../generated/prisma/enums';
 import AppError from '../../utils/appError';
 import httpStatus from 'http-status';
 
-const createBooking = async (payload: any, customerId: string) => {
+const createBookingInDB = async (payload: any, customerId: string) => {
   const { serviceId, timeSlot } = payload;
 
-  const targetService = await prisma.service.findUnique({
-    where: { id: serviceId },
-  });
-
-  if (!targetService) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Service not found!');
-  }
+  const service = await prisma.service.findUnique({ where: { id: serviceId } });
+  if (!service)
+    throw new AppError(httpStatus.NOT_FOUND, 'Target service not found.');
 
   return await prisma.booking.create({
     data: {
       customerId,
       serviceId,
+      techProfileId: service.techProfileId,
       timeSlot: new Date(timeSlot),
-    },
-    include: {
-      service: {
-        include: {
-          technician: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-        },
-      },
+      status: BookingStatus.REQUESTED,
     },
   });
 };
 
-const getUserBookings = async (userId: string, role: string) => {
-  if (role === UserRole.TECHNICIAN) {
-    return await prisma.booking.findMany({
-      where: {
-        service: {
-          technician: {
+const getUserBookingsFromDB = async (userId: string, role: string) => {
+  const filter =
+    role === 'CUSTOMER'
+      ? {
+          customerId: userId,
+        }
+      : {
+          techProfile: {
             userId,
           },
-        },
-      },
-      include: {
-        service: true,
-        customer: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    });
-  }
+        };
 
   return await prisma.booking.findMany({
-    where: {
-      customerId: userId,
-    },
+    where: filter,
     include: {
-      service: {
-        include: {
-          technician: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      },
+      service: true,
+      customer: { select: { name: true, email: true } },
     },
   });
 };
 
-const getBookingById = async (
+const getBookingByIdFromDB = async (
   bookingId: string,
   userId: string,
   role: string,
 ) => {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: {
-      payments: true,
-      customer: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      service: {
-        include: {
-          technician: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+    include: { service: true },
   });
 
-  if (!booking) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Booking record not found.');
-  }
+  if (!booking)
+    throw new AppError(httpStatus.NOT_FOUND, 'Booking record missing.');
 
-  const isOwnerOfBooking =
-    booking.customerId === userId ||
-    booking.service.technician.user.id === userId ||
-    role === UserRole.ADMIN;
-
-  if (!isOwnerOfBooking) {
-    throw new AppError(
-      httpStatus.FORBIDDEN,
-      'You do not have permission to view this booking record.',
-    );
+  if (role === 'CUSTOMER' && booking.customerId !== userId) {
+    throw new AppError(httpStatus.FORBIDDEN, 'Access unauthorized.');
   }
 
   return booking;
 };
 
 export const bookingService = {
-  createBooking,
-  getUserBookings,
-  getBookingById,
+  createBookingInDB,
+  getUserBookingsFromDB,
+  getBookingByIdFromDB,
 };
