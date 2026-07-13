@@ -4,6 +4,12 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus{
+  ACTIVE
+  BANNED
+  SUSPENDED
+}
+
 enum BookingStatus {
   REQUESTED
   ACCEPTED

@@ -4,7 +4,7 @@ model User {
   email String @unique
   password String
   role UserRole
-  status String @default("ACTIVE")
+  status UserStatus @default(ACTIVE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   

@@ -4,6 +4,12 @@ import { adminController } from './admin.controller';
 
 const router = Router();
 
+router.get('/users', auth('ADMIN'), adminController.getAllUsers);
+
+router.patch('/users/:id', auth('ADMIN'), adminController.updateUserStatus);
+
+router.get('/bookings', auth('ADMIN'), adminController.getAllBookings);
+
 router.post(
   '/categories',
   auth('ADMIN'),
