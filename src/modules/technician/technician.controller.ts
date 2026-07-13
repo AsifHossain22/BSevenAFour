@@ -96,7 +96,7 @@ const updateBookingStatus = catchAsync(async (req: Request, res: Response) => {
   if (!status) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      'Please provide the new tracking status payload.',
+      'Status field is required in the body.',
     );
   }
 
@@ -109,7 +109,7 @@ const updateBookingStatus = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: `Booking tracking status shifted to ${status} successfully!`,
+    message: `Booking successfully updated to ${status}!`,
     data: result,
   });
 });

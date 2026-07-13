@@ -8,6 +8,7 @@ import { serviceRoutes } from './modules/service/service.routes';
 import { technicianRoutes } from './modules/technician/technician.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { bookingRoutes } from './modules/booking/booking.routes';
+import { reviewRoutes } from './modules/review/review.routes';
 
 const app: Application = express();
 
@@ -37,6 +38,9 @@ app.use('/api/technician', technicianRoutes);
 
 // BookingAPI
 app.use('/api/bookings', bookingRoutes);
+
+// ReviewsAPI
+app.use('/api/reviews', reviewRoutes);
 
 // AdminAPI
 app.use('/api/admin', adminRoutes);
