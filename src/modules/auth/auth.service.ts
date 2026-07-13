@@ -4,6 +4,8 @@ import { prisma } from '../../lib/prisma';
 import { LoginUserPayload, RegisterUserPayload } from './auth.interface';
 import { jwtUtils } from '../../utils/jwt';
 import { UserRole } from '../../../generated/prisma/enums';
+import AppError from '../../utils/appError';
+import httpStatus from 'http-status';
 
 const registerUser = async (payload: RegisterUserPayload) => {
   const { name, email, password, role } = payload;
@@ -53,11 +55,15 @@ const loginUser = async (payload: LoginUserPayload) => {
   const { email, password } = payload;
 
   // FindUser
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUnique({
     where: {
       email,
     },
   });
+
+  if (!user) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid email or password.');
+  }
 
   // AccountValidation
   if (user.status === 'BANNED' || user.status === 'BLOCKED') {

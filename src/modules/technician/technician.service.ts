@@ -1,12 +1,16 @@
+import { BookingStatus } from '../../../generated/prisma/enums';
 import { prisma } from '../../lib/prisma';
 import AppError from '../../utils/appError';
 import httpStatus from 'http-status';
 
+// UpdateProfileInDB
 const updateProfileInDB = async (userId: string, payload: any) => {
   const { skills, experience, pricing } = payload;
 
   return await prisma.technicianProfile.update({
-    where: { userId },
+    where: {
+      userId,
+    },
     data: {
       skills: Array.isArray(skills) ? skills : [skills],
       experience: experience ? parseInt(experience) : undefined,
@@ -15,15 +19,19 @@ const updateProfileInDB = async (userId: string, payload: any) => {
   });
 };
 
+// UpdateAvailabilityInDB
 const updateAvailabilityInDB = async (userId: string, slots: string[]) => {
   return await prisma.technicianProfile.update({
-    where: { userId },
+    where: {
+      userId,
+    },
     data: {
       availabilitySlots: slots,
     },
   });
 };
 
+// GetTechnicianBookingsFromDB
 const getTechnicianBookingsFromDB = async (userId: string) => {
   return await prisma.booking.findMany({
     where: {
@@ -36,11 +44,21 @@ const getTechnicianBookingsFromDB = async (userId: string) => {
   });
 };
 
+// UpdateBookingStatusInDB
 const updateBookingStatusInDB = async (
   bookingId: string,
   userId: string,
-  status: any,
+  status: string,
 ) => {
+  const validStatuses = Object.values(BookingStatus) as string[];
+
+  if (!validStatuses.includes(status)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Invalid status code. Options: ${validStatuses.join(', ')}`,
+    );
+  }
+
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
@@ -68,7 +86,7 @@ const updateBookingStatusInDB = async (
       id: bookingId,
     },
     data: {
-      status,
+      status: status as BookingStatus,
     },
     include: {
       service: true,

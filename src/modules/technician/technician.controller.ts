@@ -6,6 +6,7 @@ import { sendResponse } from '../../utils/sendResponse';
 import { technicianService } from './technician.service';
 import AppError from '../../utils/appError';
 
+// UpdateProfile
 const updateProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
@@ -25,6 +26,7 @@ const updateProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// UpdateAvailability
 const updateAvailability = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
@@ -52,6 +54,7 @@ const updateAvailability = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// GetTechnicianBookings
 const getTechnicianBookings = catchAsync(
   async (req: Request, res: Response) => {
     const userId = req.user?.id;
