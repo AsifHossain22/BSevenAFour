@@ -33,10 +33,21 @@ const getUserBookingsFromDB = async (userId: string, role: string) => {
         };
 
   return await prisma.booking.findMany({
-    where: filter,
+    where: {
+      service: {
+        technician: {
+          userId,
+        },
+      },
+    },
     include: {
       service: true,
-      customer: { select: { name: true, email: true } },
+      customer: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
     },
   });
 };

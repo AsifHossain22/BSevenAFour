@@ -12,5 +12,7 @@ model User {
   bookings Booking[]
   reviews Review[]
 
+  stripeCustomerId String?
+
   @@map("users")
 }

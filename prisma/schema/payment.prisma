@@ -6,6 +6,12 @@ model Payment{
   method String
   transactionId String @unique
   status PaymentStatus @default(PENDING)
+
+  // Stripe IDs
+
+  // CustomerID
+  // PaymentID
+
   paidAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
