@@ -21,25 +21,19 @@ const createBookingInDB = async (payload: any, customerId: string) => {
 };
 
 const getUserBookingsFromDB = async (userId: string, role: string) => {
-  const filter =
+  const whereCondition =
     role === 'CUSTOMER'
-      ? {
-          customerId: userId,
-        }
+      ? { customerId: userId }
       : {
-          techProfile: {
-            userId,
+          service: {
+            technician: {
+              userId,
+            },
           },
         };
 
   return await prisma.booking.findMany({
-    where: {
-      service: {
-        technician: {
-          userId,
-        },
-      },
-    },
+    where: whereCondition,
     include: {
       service: true,
       customer: {
@@ -48,6 +42,9 @@ const getUserBookingsFromDB = async (userId: string, role: string) => {
           email: true,
         },
       },
+    },
+    orderBy: {
+      createdAt: 'desc',
     },
   });
 };
