@@ -76,6 +76,7 @@ const getTechnicianBookings = catchAsync(
   },
 );
 
+// UpdateBookingStatus
 const updateBookingStatus = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   const { id: bookingId } = req.params;

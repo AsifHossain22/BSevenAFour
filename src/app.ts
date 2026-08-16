@@ -15,7 +15,7 @@ import { globalErrorHandler } from './middlewares/globalErrorHandler';
 
 const app: Application = express();
 
-// CORS
+// CORSConfiguration
 app.use(
   cors({
     origin: config.app_url,
@@ -23,18 +23,25 @@ app.use(
   }),
 );
 
+// JSONParserForWebhookRequests
 app.use(
   express.json({
-    verify: (req: any, res, buf) => {
-      if (req.originalUrl.includes('/api/payments/webhook')) {
+    verify: (req: any, _res, buf) => {
+      if (req.originalUrl && req.originalUrl.includes('webhook')) {
         req.rawBody = buf;
       }
     },
   }),
 );
 
-// Middleware
-app.use(express.urlencoded({ extended: true }));
+// URL-EncodedMiddleware (BypassWebhookRequests)
+app.use((req, res, next) => {
+  if (req.originalUrl && req.originalUrl.includes('webhook')) {
+    return next();
+  }
+  express.urlencoded({ extended: true })(req, res, next);
+});
+
 app.use(cookieParser());
 
 // RootAPI
@@ -42,24 +49,14 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to FixItNow Server!');
 });
 
-// AuthAPI
+// APIRoutes
 app.use('/api/auth', authRoutes);
-
-// ServiceAndTechnicianAPI
 app.use('/api', serviceRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/technician', technicianRoutes);
-
-// BookingAPI
 app.use('/api/bookings', bookingRoutes);
-
-// PaymentAPI
 app.use('/api/payments', paymentRoutes);
-
-// ReviewsAPI
 app.use('/api/reviews', reviewRoutes);
-
-// AdminAPI
 app.use('/api/admin', adminRoutes);
 
 // ErrorHandlers

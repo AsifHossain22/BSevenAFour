@@ -5,6 +5,7 @@ import { sendResponse } from '../../utils/sendResponse';
 import { paymentServices } from './payment.service';
 import AppError from '../../utils/appError';
 
+// CreatePaymentSession
 const createPaymentSession = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   const { bookingId } = req.body;
@@ -29,15 +30,24 @@ const createPaymentSession = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// StripeWebhookHandler
 const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
-  const signature = req.headers['stripe-signature'] as string;
+  const signature = req.headers['stripe-signature'];
+
+  if (!signature || Array.isArray(signature)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Missing or invalid Stripe signature header.',
+    );
+  }
 
   const payload = (req as any).rawBody;
 
-  if (!payload) {
-    return res
-      .status(400)
-      .send('Raw body is missing. Check your middleware configuration.');
+  if (!payload || !Buffer.isBuffer(payload)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Raw body payload is missing or invalid Buffer.',
+    );
   }
 
   await paymentServices.handleWebhook(payload, signature);
@@ -50,6 +60,7 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// UserPaymentHistory
 const getUserPaymentHistory = catchAsync(
   async (req: Request, res: Response) => {
     const userId = req.user?.id;
@@ -68,6 +79,7 @@ const getUserPaymentHistory = catchAsync(
   },
 );
 
+// PaymentDetails
 const getPaymentDetails = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
 

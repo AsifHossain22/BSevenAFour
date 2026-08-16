@@ -6,16 +6,15 @@ import config from '../../config';
 import Stripe from 'stripe';
 import { BookingStatus, PaymentStatus } from '../../../generated/prisma/enums';
 
+// CreatePaymentSession
 const createPaymentSession = async (userId: string, bookingId: string) => {
-  const booking = (await prisma.booking.findUnique({
-    where: {
-      id: bookingId,
-    },
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
     include: {
       service: true,
       customer: true,
-    } as any,
-  })) as any;
+    },
+  });
 
   if (!booking) {
     throw new AppError(
@@ -24,7 +23,14 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
     );
   }
 
-  if (booking.status !== 'ACCEPTED') {
+  if (booking.customerId !== userId) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      'You do not have permission to pay for this booking.',
+    );
+  }
+
+  if (booking.status !== BookingStatus.ACCEPTED) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       `Payment cannot be initiated. Booking status is: ${booking.status}. Must be ACCEPTED.`,
@@ -32,6 +38,9 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
   }
 
   const transactionId = `TXN-${Date.now()}`;
+  const amountNumber = booking.service?.price
+    ? Number(booking.service.price)
+    : 0;
 
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
@@ -41,12 +50,9 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
         price_data: {
           currency: 'usd',
           product_data: {
-            name:
-              booking.service?.name ||
-              booking.service?.title ||
-              'Service Payment',
+            name: booking.service?.title || 'Service Payment',
           },
-          unit_amount: Math.round((booking.service?.price || 0) * 100),
+          unit_amount: Math.round(amountNumber * 100),
         },
         quantity: 1,
       },
@@ -64,15 +70,16 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
     data: {
       bookingId,
       transactionId,
-      amount: booking.service?.price || 0,
+      amount: amountNumber,
       status: PaymentStatus.PENDING,
       method: 'STRIPE',
-    } as any,
+    },
   });
 
   return { paymentUrl: session.url };
 };
 
+// HandleStripeWebhook
 const handleWebhook = async (payload: Buffer, signature: string) => {
   const endpointSecret = config.stripe_webhook_secret;
   let event: Stripe.Event;
@@ -80,7 +87,13 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
   try {
     event = stripe.webhooks.constructEvent(payload, signature, endpointSecret);
   } catch (err: any) {
-    throw new AppError(httpStatus.BAD_REQUEST, `Webhook error: ${err.message}`);
+    console.error('--- STRIPE WEBHOOK VERIFICATION ERROR ---');
+    console.error(err.message);
+    console.error('----------------------------------------');
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Webhook Signature Error: ${err.message}`,
+    );
   }
 
   if (event.type === 'checkout.session.completed') {
@@ -96,58 +109,69 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
     }
 
     try {
-      await prisma.payment.update({
-        where: {
-          transactionId: transactionId,
-        },
-        data: {
-          status: PaymentStatus.COMPLETED,
-          paidAt: new Date(),
-        },
+      // Check if target booking exists in database to prevent Prisma NotFoundErrors on CLI mocks
+      const existingBooking = await prisma.booking.findUnique({
+        where: { id: bookingId },
       });
 
-      await prisma.booking.update({
-        where: {
-          id: bookingId,
-        },
-        data: {
-          status: BookingStatus.PAID,
-        },
-      });
+      if (!existingBooking) {
+        console.warn(
+          `Webhook ignored: Booking ID "${bookingId}" not found in database.`,
+        );
+        return;
+      }
+
+      await prisma.$transaction([
+        prisma.payment.updateMany({
+          where: { transactionId },
+          data: {
+            status: PaymentStatus.COMPLETED,
+            paidAt: new Date(),
+          },
+        }),
+        prisma.booking.update({
+          where: { id: bookingId },
+          data: {
+            status: BookingStatus.PAID,
+          },
+        }),
+      ]);
 
       console.log(
-        `Payment captured for Booking ${bookingId} | Txn: ${transactionId}`,
+        `Payment captured successfully for Booking ${bookingId} | Txn: ${transactionId}`,
       );
     } catch (error: any) {
       console.error('DATABASE UPDATE FAILED:', error.message || error);
-      throw new AppError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        `Database update error: ${error.message}`,
-      );
+      // Log error safely so Stripe gets a 200 acknowledge instead of continuous 500 retries
+      return;
     }
+  } else {
+    console.log(`Webhook received event: ${event.type}`);
   }
 };
 
+// GetUserPaymentHistory
 const getUserPaymentHistory = async (userId: string) => {
   return await prisma.payment.findMany({
     where: {
       booking: {
         customerId: userId,
       },
-    } as any,
+    },
     include: {
       booking: {
         include: {
           service: true,
         },
       },
-    } as any,
+    },
     orderBy: {
       createdAt: 'desc',
     },
   });
 };
 
+// GetPaymentDetails
 const getPaymentDetails = async (id: string) => {
   return await prisma.payment.findUniqueOrThrow({
     where: { id },
@@ -157,7 +181,7 @@ const getPaymentDetails = async (id: string) => {
           service: true,
         },
       },
-    } as any,
+    },
   });
 };
 
