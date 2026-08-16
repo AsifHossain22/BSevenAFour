@@ -1,10 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 import { JwtPayload } from 'jsonwebtoken';
+import httpStatus from 'http-status';
 import { UserRole } from '../../generated/prisma/enums';
 import config from '../config';
 import { prisma } from '../lib/prisma';
 import { catchAsync } from '../utils/catchAsync';
 import { jwtUtils } from '../utils/jwt';
+import AppError from '../utils/appError';
 
 declare global {
   namespace Express {
@@ -28,7 +30,8 @@ export const auth = (...requiredRoles: UserRole[]) => {
         : req.headers.authorization;
 
     if (!token) {
-      throw new Error(
+      throw new AppError(
+        httpStatus.UNAUTHORIZED,
         'You are not logged in. Please log in to access this resource.',
       );
     }
@@ -39,13 +42,17 @@ export const auth = (...requiredRoles: UserRole[]) => {
     );
 
     if (!verifiedToken.success || !verifiedToken.data) {
-      throw new Error(verifiedToken.error || 'Token validation failed.');
+      throw new AppError(
+        httpStatus.UNAUTHORIZED,
+        verifiedToken.error || 'Token validation failed.',
+      );
     }
 
-    const { email, name, id, role } = verifiedToken.data as JwtPayload;
+    const { email, id, role } = verifiedToken.data as JwtPayload;
 
     if (requiredRoles.length && !requiredRoles.includes(role as UserRole)) {
-      throw new Error(
+      throw new AppError(
+        httpStatus.FORBIDDEN,
         "Forbidden. You don't have permission to access this resource.",
       );
     }
@@ -59,18 +66,24 @@ export const auth = (...requiredRoles: UserRole[]) => {
     });
 
     if (!user) {
-      throw new Error('User not found. Please log in again.');
+      throw new AppError(
+        httpStatus.UNAUTHORIZED,
+        'User not found. Please log in again.',
+      );
     }
 
     if (user.status === 'BLOCKED') {
-      throw new Error('Your account has been blocked. Please contact support.');
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        'Your account has been blocked. Please contact support.',
+      );
     }
 
     req.user = {
       email,
       name: user.name,
-      id,
-      role: role as UserRole,
+      id: user.id,
+      role: user.role,
     };
 
     next();

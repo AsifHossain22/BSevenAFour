@@ -7,8 +7,9 @@ import AppError from '../../utils/appError';
 
 const createBooking = catchAsync(async (req: Request, res: Response) => {
   const customerId = req.user?.id;
-  if (!customerId)
+  if (!customerId) {
     throw new AppError(httpStatus.UNAUTHORIZED, 'Authentication required.');
+  }
 
   const result = await bookingService.createBookingInDB(req.body, customerId);
   sendResponse(res, {
@@ -21,7 +22,17 @@ const createBooking = catchAsync(async (req: Request, res: Response) => {
 
 const getUserBookings = catchAsync(async (req: Request, res: Response) => {
   const { id: userId, role } = req.user!;
-  const result = await bookingService.getUserBookingsFromDB(userId, role);
+
+  console.log(`[GET BOOKINGS] User ID: ${userId} | Role: ${role}`);
+
+  const result = await bookingService.getUserBookingsFromDB(
+    userId,
+    role,
+    req.query,
+  );
+
+  console.log(`[GET BOOKINGS] Retrieved ${result.length} record(s)`);
+
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -39,6 +50,7 @@ const getBookingById = catchAsync(async (req: Request, res: Response) => {
     userId,
     role,
   );
+
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -47,8 +59,30 @@ const getBookingById = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const cancelBooking = catchAsync(async (req: Request, res: Response) => {
+  const { id: bookingId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Authentication required.');
+  }
+
+  const result = await bookingService.cancelBookingInDB(
+    bookingId as string,
+    userId,
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'Booking cancelled successfully.',
+    data: result,
+  });
+});
+
 export const bookingController = {
   createBooking,
   getUserBookings,
   getBookingById,
+  cancelBooking,
 };
