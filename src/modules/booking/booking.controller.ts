@@ -5,6 +5,7 @@ import { sendResponse } from '../../utils/sendResponse';
 import { bookingService } from './booking.service';
 import AppError from '../../utils/appError';
 
+// CreateBooking
 const createBooking = catchAsync(async (req: Request, res: Response) => {
   const customerId = req.user?.id;
   if (!customerId) {
@@ -20,6 +21,7 @@ const createBooking = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// GetAllUserBookings
 const getUserBookings = catchAsync(async (req: Request, res: Response) => {
   const { id: userId, role } = req.user!;
 
@@ -41,6 +43,7 @@ const getUserBookings = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// GetSingleBookingById
 const getBookingById = catchAsync(async (req: Request, res: Response) => {
   const { id: bookingId } = req.params;
   const { id: userId, role } = req.user!;
@@ -59,6 +62,7 @@ const getBookingById = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// CancelBooking
 const cancelBooking = catchAsync(async (req: Request, res: Response) => {
   const { id: bookingId } = req.params;
   const userId = req.user?.id;

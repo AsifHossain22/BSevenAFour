@@ -42,21 +42,17 @@ const createBookingInDB = async (
       timeSlot: new Date(timeSlot),
       status: BookingStatus.REQUESTED,
     },
-    include: {
-      service: {
-        include: {
-          category: true,
-          technician: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
+    select: {
+      id: true,
+      serviceId: true,
+      timeSlot: true,
+      status: true,
+      createdAt: true,
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
         },
       },
     },
@@ -76,8 +72,13 @@ const getUserBookingsFromDB = async (
   if (serviceId) {
     whereCondition.serviceId = String(serviceId);
   }
+
   if (status) {
     whereCondition.status = status;
+  } else {
+    whereCondition.status = {
+      notIn: [BookingStatus.DECLINED, BookingStatus.CANCELLED],
+    };
   }
 
   if (role === UserRole.CUSTOMER) {
@@ -93,23 +94,12 @@ const getUserBookingsFromDB = async (
 
   const bookings = await prisma.booking.findMany({
     where: whereCondition,
-    include: {
-      service: {
-        include: {
-          category: true,
-          technician: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-        },
-      },
+    select: {
+      id: true,
+      serviceId: true,
+      timeSlot: true,
+      status: true,
+      createdAt: true,
       customer: {
         select: {
           id: true,
@@ -133,23 +123,13 @@ const getBookingByIdFromDB = async (
 ) => {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: {
-      service: {
-        include: {
-          category: true,
-          technician: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-        },
-      },
+    select: {
+      id: true,
+      serviceId: true,
+      timeSlot: true,
+      status: true,
+      createdAt: true,
+      customerId: true,
       customer: {
         select: {
           id: true,
@@ -171,7 +151,8 @@ const getBookingByIdFromDB = async (
     );
   }
 
-  return booking;
+  const { customerId, ...bookingData } = booking;
+  return bookingData;
 };
 
 const cancelBookingInDB = async (bookingId: string, userId: string) => {
@@ -194,6 +175,20 @@ const cancelBookingInDB = async (bookingId: string, userId: string) => {
     where: { id: bookingId },
     data: {
       status: BookingStatus.DECLINED,
+    },
+    select: {
+      id: true,
+      serviceId: true,
+      timeSlot: true,
+      status: true,
+      createdAt: true,
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
     },
   });
 

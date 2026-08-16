@@ -83,11 +83,11 @@ const loginUser = async (payload: LoginUserPayload) => {
     config.jwt_access_expires_in || '1d',
   );
 
-  // AccessToken
+  // RefreshToken
   const refreshToken = jwtUtils.createToken(
     { id: user.id, email: user.email, role: user.role },
     config.jwt_refresh_secret as string,
-    config.jwt_access_expires_in || '7d',
+    config.jwt_refresh_expires_in || '7d',
   );
 
   return {

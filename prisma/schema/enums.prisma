@@ -4,7 +4,7 @@ enum UserRole {
   ADMIN
 }
 
-enum UserStatus{
+enum UserStatus {
   ACTIVE
   BANNED
   SUSPENDED
@@ -15,10 +15,11 @@ enum BookingStatus {
   REQUESTED
   ACCEPTED
   DECLINED
+  CANCELLED
   PAID
   IN_PROGRESS
   COMPLETED
-} 
+}
 
 enum PaymentStatus {
   PENDING

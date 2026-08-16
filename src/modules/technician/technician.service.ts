@@ -35,11 +35,31 @@ const updateAvailabilityInDB = async (userId: string, slots: string[]) => {
 const getTechnicianBookingsFromDB = async (userId: string) => {
   return await prisma.booking.findMany({
     where: {
+      status: {
+        notIn: [BookingStatus.DECLINED, BookingStatus.CANCELLED],
+      },
       service: {
         technician: {
           userId: userId,
         },
       },
+    },
+    select: {
+      id: true,
+      serviceId: true,
+      timeSlot: true,
+      status: true,
+      createdAt: true,
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
     },
   });
 };
