@@ -59,13 +59,13 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
           product_data: {
             name: booking.service?.title || 'Service Payment',
           },
-          unit_amount: Math.round(amountNumber * 100), // convert to cents
+          unit_amount: Math.round(amountNumber * 100),
         },
         quantity: 1,
       },
     ],
-    success_url: `${config.frontend_url}/payment-success?txnId=${transactionId}`,
-    cancel_url: `${config.frontend_url}/payment-failed`,
+    success_url: `${config.frontend_url}/payment/payment-success?txnId=${transactionId}`,
+    cancel_url: `${config.frontend_url}/payment/payment-failed`,
     metadata: {
       userId,
       bookingId,
