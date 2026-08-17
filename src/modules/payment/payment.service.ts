@@ -2,9 +2,9 @@ import { prisma } from '../../lib/prisma';
 import { stripe } from '../../lib/stripe';
 import AppError from '../../utils/appError';
 import httpStatus from 'http-status';
-import config from '../../config';
 import Stripe from 'stripe';
 import { BookingStatus, PaymentStatus } from '../../../generated/prisma/enums';
+import config from '../../config';
 
 // CreatePaymentSession
 const createPaymentSession = async (userId: string, bookingId: string) => {
@@ -30,6 +30,13 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
     );
   }
 
+  if (booking.status === BookingStatus.PAID) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This booking has already been paid for.',
+    );
+  }
+
   if (booking.status !== BookingStatus.ACCEPTED) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
@@ -52,13 +59,13 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
           product_data: {
             name: booking.service?.title || 'Service Payment',
           },
-          unit_amount: Math.round(amountNumber * 100),
+          unit_amount: Math.round(amountNumber * 100), // convert to cents
         },
         quantity: 1,
       },
     ],
-    success_url: `${config.app_url}/payment-success?txnId=${transactionId}`,
-    cancel_url: `${config.app_url}/payment-failed`,
+    success_url: `${config.frontend_url}/payment-success?txnId=${transactionId}`,
+    cancel_url: `${config.frontend_url}/payment-failed`,
     metadata: {
       userId,
       bookingId,
@@ -66,6 +73,7 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
     },
   });
 
+  // SavePendingPaymentState
   await prisma.payment.create({
     data: {
       bookingId,
@@ -87,9 +95,6 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
   try {
     event = stripe.webhooks.constructEvent(payload, signature, endpointSecret);
   } catch (err: any) {
-    console.error('--- STRIPE WEBHOOK VERIFICATION ERROR ---');
-    console.error(err.message);
-    console.error('----------------------------------------');
     throw new AppError(
       httpStatus.BAD_REQUEST,
       `Webhook Signature Error: ${err.message}`,
@@ -109,7 +114,6 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
     }
 
     try {
-      // Check if target booking exists in database to prevent Prisma NotFoundErrors on CLI mocks
       const existingBooking = await prisma.booking.findUnique({
         where: { id: bookingId },
       });
@@ -121,6 +125,7 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
         return;
       }
 
+      // AtomicallyUpdateBothPaymentAndBookingRecord
       await prisma.$transaction([
         prisma.payment.updateMany({
           where: { transactionId },
@@ -142,11 +147,8 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
       );
     } catch (error: any) {
       console.error('DATABASE UPDATE FAILED:', error.message || error);
-      // Log error safely so Stripe gets a 200 acknowledge instead of continuous 500 retries
       return;
     }
-  } else {
-    console.log(`Webhook received event: ${event.type}`);
   }
 };
 

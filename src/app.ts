@@ -15,15 +15,25 @@ import { globalErrorHandler } from './middlewares/globalErrorHandler';
 
 const app: Application = express();
 
-// CORSConfiguration
+// CORS
 app.use(
   cors({
-    origin: config.app_url,
+    origin: config.app_url ? [config.app_url] : true,
     credentials: true,
   }),
 );
 
-// JSONParserForWebhookRequests
+// StripeWebhookMiddleware (MustComeBefore express.json())
+app.post(
+  '/api/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  (req, res, next) => {
+    // PaymentWebhookHandler
+    next();
+  },
+);
+
+// GlobalBodyParsers
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {
@@ -34,22 +44,15 @@ app.use(
   }),
 );
 
-// URL-EncodedMiddleware (BypassWebhookRequests)
-app.use((req, res, next) => {
-  if (req.originalUrl && req.originalUrl.includes('webhook')) {
-    return next();
-  }
-  express.urlencoded({ extended: true })(req, res, next);
-});
-
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// RootAPI
+// Root API
 app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to FixItNow Server!');
 });
 
-// APIRoutes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', serviceRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -59,7 +62,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
 
-// ErrorHandlers
+// Error Handlers
 app.use(notFound);
 app.use(globalErrorHandler);
 
