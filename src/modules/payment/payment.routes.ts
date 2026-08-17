@@ -26,7 +26,4 @@ router.get(
   paymentController.getPaymentDetails,
 );
 
-// WebhookEndpointForStripe
-router.post('/webhook', paymentController.handleStripeWebhook);
-
 export const paymentRoutes = router;

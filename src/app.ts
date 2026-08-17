@@ -10,6 +10,7 @@ import { adminRoutes } from './modules/admin/admin.routes';
 import { bookingRoutes } from './modules/booking/booking.routes';
 import { reviewRoutes } from './modules/review/review.routes';
 import { paymentRoutes } from './modules/payment/payment.routes';
+import { paymentController } from './modules/payment/payment.controller';
 import { notFound } from './middlewares/notFound';
 import { globalErrorHandler } from './middlewares/globalErrorHandler';
 
@@ -23,36 +24,24 @@ app.use(
   }),
 );
 
-// StripeWebhookMiddleware (MustComeBefore express.json())
+// StripeWebhookHandler (BEFORE express.json)
 app.post(
   '/api/payments/webhook',
   express.raw({ type: 'application/json' }),
-  (req, res, next) => {
-    // PaymentWebhookHandler
-    next();
-  },
+  paymentController.handleStripeWebhook,
 );
 
 // GlobalBodyParsers
-app.use(
-  express.json({
-    verify: (req: any, _res, buf) => {
-      if (req.originalUrl && req.originalUrl.includes('webhook')) {
-        req.rawBody = buf;
-      }
-    },
-  }),
-);
-
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Root API
+// RootAPI
 app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to FixItNow Server!');
 });
 
-// API Routes
+// APIRoutes
 app.use('/api/auth', authRoutes);
 app.use('/api', serviceRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -62,7 +51,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Error Handlers
+// ErrorHandlers
 app.use(notFound);
 app.use(globalErrorHandler);
 

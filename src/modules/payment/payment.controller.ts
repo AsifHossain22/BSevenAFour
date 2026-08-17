@@ -41,7 +41,7 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
     );
   }
 
-  const payload = (req as any).rawBody;
+  const payload = req.body;
 
   if (!payload || !Buffer.isBuffer(payload)) {
     throw new AppError(
