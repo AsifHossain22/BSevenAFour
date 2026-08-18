@@ -13,6 +13,7 @@ const createPaymentSession = catchAsync(async (req: Request, res: Response) => {
   if (!userId) {
     throw new AppError(httpStatus.UNAUTHORIZED, 'Authentication required.');
   }
+
   if (!bookingId) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
@@ -64,6 +65,7 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
 const getUserPaymentHistory = catchAsync(
   async (req: Request, res: Response) => {
     const userId = req.user?.id;
+
     if (!userId) {
       throw new AppError(httpStatus.UNAUTHORIZED, 'Authentication required.');
     }

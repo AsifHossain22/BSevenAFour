@@ -5,21 +5,21 @@ import { paymentController } from './payment.controller';
 
 const router = Router();
 
-// PaymentRoutes
+// CreatePaymentSession
 router.post(
   '/create',
   auth(UserRole.CUSTOMER, UserRole.ADMIN),
   paymentController.createPaymentSession,
 );
 
-// PaymentHistoryRoutes
+// PaymentHistory
 router.get(
   '/',
   auth(UserRole.CUSTOMER, UserRole.ADMIN),
   paymentController.getUserPaymentHistory,
 );
 
-// PaymentDetailsRoute
+// PaymentDetails
 router.get(
   '/:id',
   auth(UserRole.CUSTOMER, UserRole.ADMIN),

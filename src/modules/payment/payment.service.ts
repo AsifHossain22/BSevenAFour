@@ -9,7 +9,9 @@ import config from '../../config';
 // CreatePaymentSession
 const createPaymentSession = async (userId: string, bookingId: string) => {
   const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
+    where: {
+      id: bookingId,
+    },
     include: {
       service: true,
       customer: true,
@@ -44,14 +46,22 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
     );
   }
 
-  const transactionId = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const transactionId = `TXN-${Date.now()}-${Math.floor(
+    1000 + Math.random() * 9000,
+  )}`;
+
   const amountNumber = booking.service?.price
     ? Number(booking.service.price)
     : 0;
 
-  // SafeConversionToCents
+  if (amountNumber <= 0) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Invalid payment amount.');
+  }
+
+  // ConvertUSDAmountToStripeCents
   const unitAmountInCents = Math.round((amountNumber + Number.EPSILON) * 100);
 
+  // CreateStripeCheckoutSession
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     mode: 'payment',
@@ -67,8 +77,28 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
         quantity: 1,
       },
     ],
-    success_url: `${config.frontend_url}/payment-success?txnId=${transactionId}`,
-    cancel_url: `${config.frontend_url}/payment-failed?txnId=${transactionId}`,
+
+    payment_intent_data: {
+      metadata: {
+        userId,
+        bookingId,
+        transactionId,
+      },
+    },
+
+    // StripeSuccessfulPaymentRedirect
+    success_url:
+      `${config.frontend_url}/payment-success` +
+      `?txnId=${transactionId}` +
+      `&bookingId=${bookingId}`,
+
+    // StripeCancelledPaymentRedirect
+    cancel_url:
+      `${config.frontend_url}/payment-failed` +
+      `?txnId=${transactionId}` +
+      `&bookingId=${bookingId}`,
+
+    // CheckoutSessionMetadata
     metadata: {
       userId,
       bookingId,
@@ -76,7 +106,14 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
     },
   });
 
-  // SavePendingPaymentState
+  if (!session.url) {
+    throw new AppError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'Stripe checkout URL was not generated.',
+    );
+  }
+
+  // SavePendingPayment
   await prisma.payment.create({
     data: {
       bookingId,
@@ -86,13 +123,15 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
       method: 'STRIPE',
     },
   });
-
-  return { paymentUrl: session.url };
+  return {
+    paymentUrl: session.url,
+  };
 };
 
 // HandleStripeWebhook
 const handleWebhook = async (payload: Buffer, signature: string) => {
   const endpointSecret = config.stripe_webhook_secret;
+
   let event: Stripe.Event;
 
   try {
@@ -105,24 +144,26 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
   }
 
   switch (event.type) {
+    // SuccessfulCheckout
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
       await handlePaymentSuccess(session);
       break;
     }
 
+    // CheckoutSessionExpired
     case 'checkout.session.expired': {
       const session = event.data.object as Stripe.Checkout.Session;
       await handlePaymentFailure(session, 'Session expired');
       break;
     }
 
+    // PaymentFailed
     case 'payment_intent.payment_failed': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       await handlePaymentIntentFailure(paymentIntent);
       break;
     }
-
     default:
       console.log(`Unhandled event type: ${event.type}`);
   }
@@ -141,7 +182,9 @@ const handlePaymentSuccess = async (session: Stripe.Checkout.Session) => {
   }
 
   const existingPayment = await prisma.payment.findUnique({
-    where: { transactionId },
+    where: {
+      transactionId,
+    },
   });
 
   if (!existingPayment) {
@@ -159,46 +202,61 @@ const handlePaymentSuccess = async (session: Stripe.Checkout.Session) => {
     return;
   }
 
+  // UpdatePaymentAndBookingTogether
   await prisma.$transaction([
     prisma.payment.update({
-      where: { transactionId },
+      where: {
+        transactionId,
+      },
       data: {
         status: PaymentStatus.COMPLETED,
         paidAt: new Date(),
         gatewayResponse: JSON.stringify(session),
       },
     }),
+
     prisma.booking.update({
-      where: { id: bookingId },
+      where: {
+        id: bookingId,
+      },
       data: {
         status: BookingStatus.PAID,
       },
     }),
   ]);
-
   console.log(
     `Payment captured successfully for Booking ${bookingId} | Txn: ${transactionId}`,
   );
 };
 
-// HandlePaymentFailureOrExpiration
+// HandleCheckoutSessionFailure
 const handlePaymentFailure = async (
   session: Stripe.Checkout.Session,
   reason: string,
 ) => {
   const transactionId = session.metadata?.transactionId;
-  if (!transactionId) return;
+
+  if (!transactionId) {
+    return;
+  }
 
   const existingPayment = await prisma.payment.findUnique({
-    where: { transactionId },
+    where: {
+      transactionId,
+    },
   });
 
   if (existingPayment && existingPayment.status === PaymentStatus.PENDING) {
     await prisma.payment.update({
-      where: { transactionId },
+      where: {
+        transactionId,
+      },
       data: {
         status: PaymentStatus.FAILED,
-        gatewayResponse: JSON.stringify({ reason, session }),
+        gatewayResponse: JSON.stringify({
+          reason,
+          session,
+        }),
       },
     });
     console.log(
@@ -212,15 +270,25 @@ const handlePaymentIntentFailure = async (
   paymentIntent: Stripe.PaymentIntent,
 ) => {
   const transactionId = paymentIntent.metadata?.transactionId;
-  if (!transactionId) return;
+
+  if (!transactionId) {
+    console.warn(
+      'PaymentIntent failure webhook has no transactionId metadata.',
+    );
+    return;
+  }
 
   const existingPayment = await prisma.payment.findUnique({
-    where: { transactionId },
+    where: {
+      transactionId,
+    },
   });
 
   if (existingPayment && existingPayment.status === PaymentStatus.PENDING) {
     await prisma.payment.update({
-      where: { transactionId },
+      where: {
+        transactionId,
+      },
       data: {
         status: PaymentStatus.FAILED,
         gatewayResponse: JSON.stringify(paymentIntent.last_payment_error),
@@ -254,7 +322,9 @@ const getUserPaymentHistory = async (userId: string) => {
 // GetPaymentDetails
 const getPaymentDetails = async (id: string) => {
   return await prisma.payment.findUniqueOrThrow({
-    where: { id },
+    where: {
+      id,
+    },
     include: {
       booking: {
         include: {
