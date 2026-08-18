@@ -44,10 +44,13 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
     );
   }
 
-  const transactionId = `TXN-${Date.now()}`;
+  const transactionId = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const amountNumber = booking.service?.price
     ? Number(booking.service.price)
     : 0;
+
+  // SafeConversionToCents
+  const unitAmountInCents = Math.round((amountNumber + Number.EPSILON) * 100);
 
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
@@ -59,13 +62,13 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
           product_data: {
             name: booking.service?.title || 'Service Payment',
           },
-          unit_amount: Math.round(amountNumber * 100),
+          unit_amount: unitAmountInCents,
         },
         quantity: 1,
       },
     ],
-    success_url: `${config.frontend_url}/payment/payment-success?txnId=${transactionId}`,
-    cancel_url: `${config.frontend_url}/payment/payment-failed`,
+    success_url: `${config.frontend_url}/payment-success?txnId=${transactionId}`,
+    cancel_url: `${config.frontend_url}/payment-failed?txnId=${transactionId}`,
     metadata: {
       userId,
       bookingId,
@@ -101,54 +104,129 @@ const handleWebhook = async (payload: Buffer, signature: string) => {
     );
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const bookingId = session.metadata?.bookingId;
-    const transactionId = session.metadata?.transactionId;
-
-    if (!bookingId || !transactionId) {
-      console.warn(
-        'Webhook: Session missing metadata bookingId or transactionId.',
-      );
-      return;
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handlePaymentSuccess(session);
+      break;
     }
 
-    try {
-      const existingBooking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-      });
-
-      if (!existingBooking) {
-        console.warn(
-          `Webhook ignored: Booking ID "${bookingId}" not found in database.`,
-        );
-        return;
-      }
-
-      // AtomicallyUpdateBothPaymentAndBookingRecord
-      await prisma.$transaction([
-        prisma.payment.updateMany({
-          where: { transactionId },
-          data: {
-            status: PaymentStatus.COMPLETED,
-            paidAt: new Date(),
-          },
-        }),
-        prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: BookingStatus.PAID,
-          },
-        }),
-      ]);
-
-      console.log(
-        `Payment captured successfully for Booking ${bookingId} | Txn: ${transactionId}`,
-      );
-    } catch (error: any) {
-      console.error('DATABASE UPDATE FAILED:', error.message || error);
-      return;
+    case 'checkout.session.expired': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handlePaymentFailure(session, 'Session expired');
+      break;
     }
+
+    case 'payment_intent.payment_failed': {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      await handlePaymentIntentFailure(paymentIntent);
+      break;
+    }
+
+    default:
+      console.log(`Unhandled event type: ${event.type}`);
+  }
+};
+
+// HandlePaymentSuccess
+const handlePaymentSuccess = async (session: Stripe.Checkout.Session) => {
+  const bookingId = session.metadata?.bookingId;
+  const transactionId = session.metadata?.transactionId;
+
+  if (!bookingId || !transactionId) {
+    console.warn(
+      'Webhook: Session missing metadata bookingId or transactionId.',
+    );
+    return;
+  }
+
+  const existingPayment = await prisma.payment.findUnique({
+    where: { transactionId },
+  });
+
+  if (!existingPayment) {
+    console.warn(
+      `Webhook ignored: Payment transaction "${transactionId}" not found.`,
+    );
+    return;
+  }
+
+  // IdempotencyCheck
+  if (existingPayment.status === PaymentStatus.COMPLETED) {
+    console.log(
+      `Webhook skipped: Transaction ${transactionId} is already marked COMPLETED.`,
+    );
+    return;
+  }
+
+  await prisma.$transaction([
+    prisma.payment.update({
+      where: { transactionId },
+      data: {
+        status: PaymentStatus.COMPLETED,
+        paidAt: new Date(),
+        gatewayResponse: JSON.stringify(session),
+      },
+    }),
+    prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: BookingStatus.PAID,
+      },
+    }),
+  ]);
+
+  console.log(
+    `Payment captured successfully for Booking ${bookingId} | Txn: ${transactionId}`,
+  );
+};
+
+// HandlePaymentFailureOrExpiration
+const handlePaymentFailure = async (
+  session: Stripe.Checkout.Session,
+  reason: string,
+) => {
+  const transactionId = session.metadata?.transactionId;
+  if (!transactionId) return;
+
+  const existingPayment = await prisma.payment.findUnique({
+    where: { transactionId },
+  });
+
+  if (existingPayment && existingPayment.status === PaymentStatus.PENDING) {
+    await prisma.payment.update({
+      where: { transactionId },
+      data: {
+        status: PaymentStatus.FAILED,
+        gatewayResponse: JSON.stringify({ reason, session }),
+      },
+    });
+    console.log(
+      `Payment marked FAILED for Txn: ${transactionId} | Reason: ${reason}`,
+    );
+  }
+};
+
+// HandlePaymentIntentFailure
+const handlePaymentIntentFailure = async (
+  paymentIntent: Stripe.PaymentIntent,
+) => {
+  const transactionId = paymentIntent.metadata?.transactionId;
+  if (!transactionId) return;
+
+  const existingPayment = await prisma.payment.findUnique({
+    where: { transactionId },
+  });
+
+  if (existingPayment && existingPayment.status === PaymentStatus.PENDING) {
+    await prisma.payment.update({
+      where: { transactionId },
+      data: {
+        status: PaymentStatus.FAILED,
+        gatewayResponse: JSON.stringify(paymentIntent.last_payment_error),
+      },
+    });
+    console.log(`Payment Intent marked FAILED for Txn: ${transactionId}`);
   }
 };
 
