@@ -67,8 +67,8 @@ const createPaymentSession = async (userId: string, bookingId: string) => {
         quantity: 1,
       },
     ],
-    success_url: `${config.frontend_url}/payment-success?txnId=${transactionId}`,
-    cancel_url: `${config.frontend_url}/payment-failed?txnId=${transactionId}`,
+    success_url: `${config.frontend_url}/payment-success`,
+    cancel_url: `${config.frontend_url}/payment-failed`,
     metadata: {
       userId,
       bookingId,
